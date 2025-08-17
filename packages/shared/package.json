@@ -1,0 +1,44 @@
+{
+  "name": "@crx-mcp-over-cdp/shared",
+  "version": "0.0.1",
+  "description": "chrome extension shared code",
+  "private": true,
+  "sideEffects": false,
+  "files": [
+    "dist/**"
+  ],
+  "main": "./dist/cjs/shared/index.js",
+  "module": "./dist/esm/shared/index.js",
+  "types": "index.ts",
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build:esm": "tsc --module esnext --target esnext --outDir dist/esm",
+    "build:cjs": "tsc --module commonjs --target esnext --outDir dist/cjs",
+    "ready": "pnpm build:esm && pnpm build:cjs",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "pnpm lint --fix",
+    "prettier": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@crx-mcp-over-cdp/tsconfig": "workspace:*",
+    "devtools-protocol": "^0.0.1502260"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.26",
+    "@langchain/core": "^0.3.71",
+    "@langchain/google-genai": "^0.2.16",
+    "@langchain/langgraph": "^0.4.5",
+    "@langchain/mcp-adapters": "^0.6.0",
+    "@langchain/openai": "^0.6.7",
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "@types/dexie": "^1.3.35",
+    "buffer": "^6.0.3",
+    "dexie": "^4.0.9",
+    "fake-indexeddb": "^6.0.0",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.8.0",
+    "xstate": "^5.18.2",
+    "zod": "^4.0.17"
+  }
+}

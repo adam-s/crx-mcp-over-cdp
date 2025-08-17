@@ -1,0 +1,16 @@
+{
+  "extends": "@crx-mcp-over-cdp/tsconfig/utils",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": [
+      "chrome"
+    ]
+  },
+  "exclude": [
+    "lib/injections/**/*"
+  ],
+  "include": [
+    "lib",
+    "index.ts"
+  ]
+}

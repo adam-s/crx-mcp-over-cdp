@@ -1,0 +1,35 @@
+{
+  "extends": "@crx-mcp-over-cdp/tsconfig/utils",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "target": "ESNext",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@shared/*": [
+        "src/*"
+      ],
+      "vs/*": [
+        "../vs/vs/*"
+      ],
+      "@injected/*": [
+        "../injected/lib/*"
+      ],
+    },
+    "types": [
+      "chrome"
+    ],
+  },
+  "include": [
+    "index.ts",
+    "src",
+    "../injected/global.d.ts",
+    "../../pages/side-panel/src/services/utils/TabService.ts",
+    "../../pages/side-panel/src/services/utils/ExtensionClientLifecycle.ts"
+  ],
+}

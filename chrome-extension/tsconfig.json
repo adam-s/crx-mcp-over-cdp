@@ -1,0 +1,41 @@
+{
+  "extends": "@crx-mcp-over-cdp/tsconfig/app.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "types": [
+      "vite/client",
+      "node",
+      "chrome",
+      "vitest/globals"
+    ],
+    "paths": {
+      "@root/*": [
+        "./*"
+      ],
+      "@lib/*": [
+        "lib/*"
+      ],
+      "@src/*": [
+        "background/src/*"
+      ],
+      "@shared/*": [
+        "../packages/shared/src/*"
+      ],
+      "vs/*": [
+        "../packages/vs/vs/*"
+      ],
+      "@injected/*": [
+        "../packages/injected/lib/*"
+      ],
+    }
+  },
+  "include": [
+    "background",
+    "lib",
+    "utils",
+    "vite.config.mts",
+    "node_modules/@types",
+    "../packages/vs/vs",
+    "../packages/shared/src"
+  ],
+}

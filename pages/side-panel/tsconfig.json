@@ -1,0 +1,36 @@
+{
+  "extends": "@crx-mcp-over-cdp/tsconfig/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": [
+        "src/*"
+      ],
+      "@shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "vs/*": [
+        "../../packages/vs/vs/*"
+      ],
+      "@injected/*": [
+        "../../packages/injected/lib/*"
+      ]
+    },
+    "jsx": "react-jsx",
+    "types": [
+      "chrome"
+    ],
+    "target": "ESNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "esnext"
+  },
+  "include": [
+    "src",
+    "../../packages/vs/vs",
+    "../../packages/shared/src",
+    "../../packages/injected/lib",
+    "../../packages/injected/global.d.ts",
+    "../content-injected/index.d.ts"
+  ]
+}

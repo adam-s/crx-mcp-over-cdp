@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MCP Over CDP</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+      }
+
+      .container {
+        text-align: center;
+        max-width: 90vw;
+        max-height: 90vh;
+        padding: 1rem;
+        overflow: hidden;
+      }
+
+      .content {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+      }
+
+      .logo {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+      }
+
+      .tagline {
+        font-size: 1rem;
+        color: #666;
+        margin-bottom: 1rem;
+        font-weight: 400;
+      }
+
+      .description {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: #555;
+        margin-bottom: 1rem;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .status {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        background: rgba(76, 175, 80, 0.1);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        border-radius: 6px;
+        color: #2e7d32;
+        font-weight: 500;
+        font-size: 0.85rem;
+      }
+
+      .version {
+        position: absolute;
+        bottom: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.7rem;
+        color: #999;
+      }
+
+      /* Small screens */
+      @media (max-width: 480px) {
+        .container {
+          padding: 0.5rem;
+        }
+
+        .content {
+          padding: 1.5rem;
+        }
+
+        .logo {
+          font-size: 1.5rem;
+        }
+
+        .tagline {
+          font-size: 0.9rem;
+        }
+
+        .description {
+          font-size: 0.8rem;
+        }
+
+        .status {
+          font-size: 0.8rem;
+          padding: 0.5rem;
+        }
+      }
+
+      /* Medium screens */
+      @media (min-width: 481px) and (max-width: 768px) {
+        .content {
+          padding: 2rem;
+        }
+
+        .logo {
+          font-size: 1.8rem;
+        }
+      }
+
+      /* Large screens */
+      @media (min-width: 769px) {
+        .container {
+          max-width: 600px;
+        }
+
+        .content {
+          padding: 3rem;
+        }
+
+        .logo {
+          font-size: 2.5rem;
+        }
+
+        .tagline {
+          font-size: 1.1rem;
+        }
+
+        .description {
+          font-size: 1rem;
+        }
+
+        .status {
+          font-size: 0.9rem;
+          padding: 1rem;
+        }
+      }
+
+      /* Extra large screens */
+      @media (min-width: 1200px) {
+        .logo {
+          font-size: 3rem;
+        }
+
+        .tagline {
+          font-size: 1.2rem;
+        }
+
+        .description {
+          font-size: 1.1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="content">
+        <div class="logo">MCP Over CDP</div>
+        <div class="tagline">Model Context Protocol meets Chrome DevTools Protocol</div>
+        <div class="description">
+          A powerful Chrome extension that bridges the gap between MCP and CDP, enabling seamless
+          browser automation and control through the Model Context Protocol.
+        </div>
+
+        <div class="status">✅ Extension Active - Ready to connect with MCP tools</div>
+
+        <div class="version">v1.0.0</div>
+      </div>
+    </div>
+  </body>
+</html>

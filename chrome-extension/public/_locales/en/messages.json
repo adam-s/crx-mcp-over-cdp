@@ -1,0 +1,10 @@
+{
+  "extensionDescription": {
+    "description": "Extension description",
+    "message": "CRX MCP over CDP Side Panel."
+  },
+  "extensionName": {
+    "description": "Extension name",
+    "message": "CRX MCP over CDP Side Panel"
+  }
+}

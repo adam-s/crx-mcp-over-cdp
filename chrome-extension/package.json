@@ -1,0 +1,48 @@
+{
+  "name": "chrome-extension",
+  "version": "0.0.1",
+  "description": "chrome extension",
+  "scripts": {
+    "clean": "rimraf ../../dist",
+    "build": "tsc --noEmit && vite build",
+    "build:firefox": "tsc --noEmit && cross-env __FIREFOX__=true vite build",
+    "build:watch": "cross-env __DEV__=true vite build -w --mode development",
+    "build:firefox:watch": "cross-env __DEV__=true __FIREFOX__=true vite build -w --mode development",
+    "dev": "pnpm build:watch",
+    "dev:firefox": "pnpm build:firefox:watch",
+    "lint": "eslint ./ --ext .ts,.js,.tsx,.jsx",
+    "lint:fix": "pnpm lint --fix",
+    "prettier": "prettier . --write --ignore-path ../.prettierignore",
+    "type-check": "tsc --noEmit",
+    "test": "vitest --config vite.config.mts",
+    "test:ui": "vitest --ui --config vite.config.mts",
+    "test:run": "vitest run --config vite.config.mts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@crx-mcp-over-cdp/shared": "workspace:*",
+    "@langchain/anthropic": "^0.3.26",
+    "@langchain/core": "^0.3.71",
+    "@langchain/google-genai": "^0.2.16",
+    "@langchain/langgraph": "^0.4.5",
+    "@langchain/mcp-adapters": "^0.6.0",
+    "@langchain/openai": "^0.6.7",
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "dexie": "^4.0.9",
+    "jsdom": "^25.0.1",
+    "webextension-polyfill": "^0.12.0",
+    "xstate": "^5.18.2",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@crx-mcp-over-cdp/dev-utils": "workspace:*",
+    "@crx-mcp-over-cdp/hmr": "workspace:*",
+    "@crx-mcp-over-cdp/tsconfig": "workspace:*",
+    "@laynezh/vite-plugin-lib-assets": "^1.1.0",
+    "@types/ws": "^8.5.10",
+    "fake-indexeddb": "^6.0.0",
+    "magic-string": "^0.30.10",
+    "ts-loader": "^9.5.1",
+    "vitest": "^2.0.0"
+  }
+}
