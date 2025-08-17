@@ -1,5 +1,6 @@
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { Event, Emitter } from 'vs/base/common/event';
 import { ILocalAsyncStorage } from '../storage/localAsyncStorage/localAsyncStorage.service';
 import { ChromeExtensionDriver } from '../crx-mcp/chromeExtensionDriver';
 import { CDP } from '../crx-mcp/CDP';
@@ -11,11 +12,16 @@ import { A11yTreeSnapshotTaker } from '../crx-mcp/A11yTreeSnapshotTaker';
 import { runBabyElephantAgent, runEnhancedBabyElephantAgent } from '../crx-mcp/babyElephantAgent';
 import { DriverTestSuite } from '../crx-mcp/driverTest';
 import { StorageKeys, type SidePanelAppStorageSchema } from '../storage/types/storage.types';
+import { type AgentEvent } from '../crx-mcp/babyElephantAgent.v2';
 
 export const ICRXMCPService = createDecorator<ICRXMCPService>('crxMCPService');
 
 export interface ICRXMCPService {
   readonly _serviceBrand: undefined;
+
+  // Events
+  readonly onAgentEvent: Event<AgentEvent>;
+
   getOpenAIKey(): Promise<string>;
   setOpenAIKey(apiKey: string): Promise<void>;
   runDriverTests(): Promise<string>; // Changed to return string for JSON serialization
@@ -59,10 +65,16 @@ export interface ICRXMCPService {
   ): Promise<string>;
   createNewTab(url?: string): Promise<string>;
   openLandingPage(): Promise<string>;
+
+  // Test method to verify event streaming
+  testAgentEvents(): void;
 }
 
 export class CRXMCPService implements ICRXMCPService {
   readonly _serviceBrand: undefined;
+
+  private readonly _onAgentEvent = new Emitter<AgentEvent>();
+  readonly onAgentEvent = this._onAgentEvent.event;
 
   private static _sharedDriver: ChromeExtensionDriver | undefined;
   private _driver: ChromeExtensionDriver | undefined;
@@ -231,9 +243,16 @@ export class CRXMCPService implements ICRXMCPService {
 
       // Get API key
       const apiKey = await this.getOpenAIKey();
+      // Create event handler that forwards events to our emitter
+      const onEvent = (event: AgentEvent) => {
+        this._onAgentEvent.fire(event);
+      };
 
-      // Delegate to the specialized service
-      return await this._babyElephantAgentV2Service!.runBabyElephantAgentV2(task, apiKey, options);
+      // Delegate to the specialized service with event handler
+      return await this._babyElephantAgentV2Service!.runBabyElephantAgentV2(task, apiKey, {
+        ...options,
+        onEvent,
+      });
     } catch (error) {
       return this._safeStringify({
         success: false,
@@ -520,6 +539,37 @@ export class CRXMCPService implements ICRXMCPService {
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  // Test method to verify event streaming
+  testAgentEvents(): void {
+    // Fire a few test events to verify the streaming works
+    setTimeout(() => {
+      this._onAgentEvent.fire({
+        step: 1,
+        phase: 'plan',
+        message: 'Test event: Planning phase',
+        details: { test: true },
+      });
+    }, 100);
+
+    setTimeout(() => {
+      this._onAgentEvent.fire({
+        step: 2,
+        phase: 'act',
+        message: 'Test event: Action phase',
+        details: { test: true },
+      });
+    }, 500);
+
+    setTimeout(() => {
+      this._onAgentEvent.fire({
+        step: 3,
+        phase: 'finish',
+        message: 'Test event: Completion phase',
+        details: { test: true },
+      });
+    }, 1000);
   }
 }
 

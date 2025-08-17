@@ -1,5 +1,5 @@
 import React from 'react';
-import { makeStyles, mergeClasses } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import { Panel } from './Panel';
 import { Main } from '../pages/Main';
 import { SearchPage } from '../pages/SearchPage';
@@ -67,20 +67,16 @@ export const Content: React.FC = () => {
         </Panel>
       ) : (
         <>
-          <div
-            className={mergeClasses(
-              styles.pageContainer,
-              currentPage === 'main' && styles.pageVisible,
-            )}>
-            <Main />
-          </div>
-          <div
-            className={mergeClasses(
-              styles.pageContainer,
-              currentPage === 'search' && styles.pageVisible,
-            )}>
-            <SearchPage />
-          </div>
+          {currentPage === 'main' && (
+            <div className={styles.pageVisible}>
+              <Main />
+            </div>
+          )}
+          {currentPage === 'search' && (
+            <div className={styles.pageVisible}>
+              <SearchPage />
+            </div>
+          )}
         </>
       )}
     </div>

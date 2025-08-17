@@ -2,38 +2,24 @@ import React from 'react';
 import { makeStyles } from '@fluentui/react-components';
 import { ScrollablePanel } from '../components/Panel';
 import { BabyAnimalImageSearch } from '../components/BabyAnimalImageSearch';
-import { ExamplePanel } from '../components/ExamplePanel';
-
-// Define breakpoints consistent with the design system
-const BREAKPOINTS = {
-  MOBILE: '300px',
-  TABLET: '680px',
-  DESKTOP: '900px',
-} as const;
+import { ServiceConsole, logToServiceConsole } from '../components/ServiceConsole';
+import { useService } from '../hooks/useService';
+import { ICRXMCPService } from '@shared/services/crxMCP.service';
 
 const useStyles = makeStyles({
   root: {
     flexBasis: '100%',
-    display: 'grid',
+    display: 'flex',
+    flexDirection: 'column',
     gap: '10px',
-    gridTemplateRows: '1fr',
-    gridTemplateColumns: '1fr',
     height: '100%',
-    [`@media (min-width: ${BREAKPOINTS.TABLET})`]: {
-      gridTemplateColumns: '1fr 1fr',
-    },
   },
-  panel: {
-    height: '100%',
+  searchPanel: {
+    flexShrink: 0,
     minHeight: 0,
-    overflow: 'hidden',
   },
-  secondPanel: {
-    display: 'none',
-    [`@media (min-width: ${BREAKPOINTS.TABLET})`]: {
-      display: 'block',
-    },
-    height: '100%',
+  consolePanel: {
+    flex: 1,
     minHeight: 0,
     overflow: 'hidden',
   },
@@ -41,20 +27,64 @@ const useStyles = makeStyles({
 
 export const Main: React.FC = () => {
   const styles = useStyles();
+  const crxMcpService = useService(ICRXMCPService);
+
+  // Handle console commands
+  const handleCommand = (command: string) => {
+    const cmd = command.toLowerCase().split(' ')[0];
+
+    switch (cmd) {
+      case 'help':
+        logToServiceConsole('system', 'info', 'Available commands:');
+        logToServiceConsole('system', 'info', '  help - Show this help');
+        logToServiceConsole('system', 'info', '  clear - Clear console');
+        logToServiceConsole('system', 'info', '  status - Show system status');
+        logToServiceConsole('system', 'info', '  test-events - Test agent event streaming');
+        break;
+
+      case 'clear':
+        // The clear functionality is built into the ServiceConsole button
+        logToServiceConsole('system', 'info', 'Console cleared');
+        break;
+
+      case 'status':
+        logToServiceConsole('system', 'info', 'Side panel: Active');
+        logToServiceConsole('system', 'info', 'Baby elephant search: Ready');
+        break;
+
+      case 'test-events':
+        logToServiceConsole('system', 'info', 'Testing agent event streaming...');
+        crxMcpService.testAgentEvents();
+        break;
+
+      default:
+        logToServiceConsole(
+          'system',
+          'error',
+          `Unknown command: ${cmd}. Type 'help' for available commands.`,
+        );
+    }
+  };
+
+  // Initialize console with welcome message
+  React.useEffect(() => {
+    setTimeout(() => {
+      logToServiceConsole('system', 'info', 'Side panel initialized');
+      logToServiceConsole('system', 'info', 'Type "help" for available commands');
+    }, 500);
+  }, []);
 
   return (
     <div data-test-id="main" className={styles.root}>
-      {/* First panel: always visible */}
-      <div className={styles.panel}>
+      {/* Search panel: input and button */}
+      <div className={styles.searchPanel}>
         <ScrollablePanel>
           <BabyAnimalImageSearch />
         </ScrollablePanel>
       </div>
-      {/* Second panel: only visible on wide screens */}
-      <div className={styles.secondPanel}>
-        <ScrollablePanel>
-          <ExamplePanel />
-        </ScrollablePanel>
+      {/* Console panel: below the search */}
+      <div className={styles.consolePanel}>
+        <ServiceConsole onCommand={handleCommand} />
       </div>
     </div>
   );

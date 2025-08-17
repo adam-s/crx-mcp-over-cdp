@@ -2,11 +2,19 @@
 // Service layer for Baby Elephant Agent V2 that integrates with CRXMCPService infrastructure
 // This handles the bridge between the service and the agent implementation
 
-import { runAgentV2, type AgentTools, type AgentIO } from './babyElephantAgent.v2';
+import { runAgentV2, type AgentTools, type AgentIO, type AgentEvent } from './babyElephantAgent.v2';
 import type { ChromeExtensionDriver } from './chromeExtensionDriver';
 import type { DomInteractionsOperator } from './DomInteractionsOperator';
 import type { A11yTreeSnapshotTaker } from './A11yTreeSnapshotTaker';
 import { ChatOpenAI } from '@langchain/openai';
+import type { ServiceConsoleInterface } from '../types/serviceConsole.types';
+
+// Global window interface extension
+declare global {
+  interface Window {
+    serviceConsole?: ServiceConsoleInterface;
+  }
+}
 
 /* ------------------------- Client-Side Image Extraction Script ------------------------- */
 function createImageExtractionScript(strategy: {
@@ -236,6 +244,7 @@ export interface BabyElephantAgentV2Options {
   startUrl?: string;
   maxSteps?: number;
   devMode?: boolean;
+  onEvent?: (event: AgentEvent) => void;
 }
 
 export class BabyElephantAgentV2Service {
@@ -404,6 +413,15 @@ Examples:
     apiKey: string,
     options: BabyElephantAgentV2Options = {},
   ): Promise<string> {
+    // Event handler to broadcast agent events globally
+    const handleAgentEvent = (event: AgentEvent) => {
+      console.log(
+        `##### [Agent Step ${event.step}] ${event.phase.toUpperCase()}: ${event.message} #####`,
+      );
+
+      // Note: ServiceConsole logging is now handled by the VS Code event subscription in the hook
+      // to avoid duplicate messages. Window events removed to prevent duplication.
+    };
     try {
       const { driver, domInteractionsOperator, a11yTreeSnapshotTaker } = this.dependencies;
 
@@ -535,7 +553,13 @@ Examples:
         devMode: options.devMode || true,
         apiKey,
         onEvent: event => {
-          console.log(`[Agent V2] Step ${event.step} - ${event.phase}: ${event.message}`);
+          // Call the global event handler (for internal console logging)
+          handleAgentEvent(event);
+
+          // Call the external event handler if provided (for VS Code event forwarding)
+          if (options.onEvent) {
+            options.onEvent(event);
+          }
         },
       };
 
