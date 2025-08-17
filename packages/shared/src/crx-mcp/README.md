@@ -2,6 +2,25 @@
 
 A simple, working agent that demonstrates browser automation for image search and scraping. This agent is built on your existing Chrome extension scaffold and uses the ChromeExtensionDriver.
 
+## Versions
+
+### V1 Agent (`babyElephantAgent.ts`)
+The original hardcoded agent that performs specific navigation steps.
+
+### V2 Agent (`babyElephantAgent.v2.ts` + `babyElephantAgentV2Service.ts`)
+An advanced LLM-driven agent that uses planning, action, and reflection loops for dynamic web automation.
+
+**Architecture:**
+- `babyElephantAgent.v2.ts` - Core agent logic with LLM planning
+- `babyElephantAgentV2Service.ts` - Service integration layer that bridges the agent with the CRXMCPService infrastructure
+
+**Key Features:**
+- Natural language task interpretation
+- Dynamic strategy adaptation based on website structure
+- Loop detection and circuit breakers to prevent infinite loops
+- Universal image extraction that works across multiple search engines
+- Graceful error handling and recovery mechanisms
+
 ## What it does
 
 The baby elephant agent performs two main tasks:
@@ -11,7 +30,7 @@ The baby elephant agent performs two main tasks:
 
 ## How to use
 
-### Basic usage
+### Basic usage (V1)
 
 ```typescript
 import { runBabyElephantAgent } from './babyElephantAgent';

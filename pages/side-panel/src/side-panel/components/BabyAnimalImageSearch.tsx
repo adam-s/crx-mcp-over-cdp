@@ -46,19 +46,19 @@ const useStyles = makeStyles({
   },
   buttonContainer: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
     padding: '0 10px',
   },
   searchButton: {
     minWidth: 'unset',
     height: '28px',
-    padding: '0 12px',
+    padding: '0 8px',
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    fontSize: '12px',
+    fontSize: '11px',
     '&[disabled]': {
       backgroundColor: tokens.colorNeutralBackground2,
       color: tokens.colorNeutralForeground4,
@@ -127,10 +127,12 @@ const useStyles = makeStyles({
 
 export const BabyAnimalImageSearch: React.FC = () => {
   const [animalName, setAnimalName] = useState('');
+  const [activeButton, setActiveButton] = useState<'v1' | 'v2' | null>(null);
   const styles = useStyles();
 
   // Use the enhanced hook controller
-  const { isLoading, result, error, searchBabyAnimalImages, clearError } = useBabyElephantImage();
+  const { isLoading, result, error, searchBabyAnimalImages, searchBabyAnimalImagesV2, clearError } =
+    useBabyElephantImage();
 
   const handleAnimalInputChange = (
     _event: React.ChangeEvent<HTMLInputElement>,
@@ -145,7 +147,16 @@ export const BabyAnimalImageSearch: React.FC = () => {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setActiveButton('v1');
     await searchBabyAnimalImages(animalName);
+    setActiveButton(null);
+  };
+
+  const handleSubmitV2 = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setActiveButton('v2');
+    await searchBabyAnimalImagesV2(animalName);
+    setActiveButton(null);
   };
 
   return (
@@ -174,8 +185,19 @@ export const BabyAnimalImageSearch: React.FC = () => {
             disabled={isLoading || !animalName.trim()}
             appearance="primary"
             className={styles.searchButton}
-            icon={isLoading ? <Spinner size="tiny" /> : <SearchRegular />}>
-            {isLoading ? 'Searching...' : 'Search'}
+            icon={isLoading && activeButton === 'v1' ? <Spinner size="tiny" /> : <SearchRegular />}>
+            {isLoading && activeButton === 'v1' ? 'Searching...' : 'Search (V1)'}
+          </Button>
+          <Button
+            type="button"
+            disabled={isLoading || !animalName.trim()}
+            appearance="secondary"
+            className={styles.searchButton}
+            icon={isLoading && activeButton === 'v2' ? <Spinner size="tiny" /> : <SearchRegular />}
+            onClick={() =>
+              handleSubmitV2({ preventDefault: () => {} } as FormEvent<HTMLFormElement>)
+            }>
+            {isLoading && activeButton === 'v2' ? 'Searching...' : 'Search (V2)'}
           </Button>
         </div>
       </form>

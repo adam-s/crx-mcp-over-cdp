@@ -21,16 +21,19 @@ import { IConnectionManager, ConnectionManager } from '@shared/ipc/message/Conne
 import { ProxyChannel, StaticRouter } from 'vs/base/parts/ipc/common/ipc';
 import { IMathService } from '@shared/services/math.service';
 import { ICRXMCPService } from '@shared/services/crxMCP.service';
-import { IBabyElephantImageService, BabyElephantImageService } from '@src/side-panel/services/babyElephantImage.service';
+import {
+  IBabyElephantImageService,
+  BabyElephantImageService,
+} from '@src/side-panel/services/babyElephantImage.service';
 import { parseDocumentId } from '@shared/utils/utils';
 
-export interface ISidePanelConfiguration { }
+export interface ISidePanelConfiguration {}
 
 // Define a basic schema for your local async storage
 // You can expand this with specific keys and types as needed
 interface SidePanelStorageSchema {
   [key: string]: unknown;
-  // Example: openAiApiKey?: string;
+  openAiApiKey?: string;
 }
 export class SidePanelApp extends Disposable {
   private _windowId!: number;
@@ -114,15 +117,6 @@ export class SidePanelApp extends Disposable {
       server.getChannel('crxMcpService', contentRouter),
     );
 
-    // Test MCP service functions
-    crxMcpService.getCurrentPageUrl().then(url => {
-      console.log('Current page URL:', url);
-    });
-
-    crxMcpService.getConsoleLogs().then(logs => {
-      console.log('Console logs:', logs);
-    });
-
     // Register Baby Elephant Image Service locally
     const babyElephantImageService = instantiationService.createInstance(BabyElephantImageService);
     serviceCollection.set(IBabyElephantImageService, babyElephantImageService);
@@ -157,7 +151,8 @@ export class SidePanelApp extends Disposable {
         sendResponse: (response?: any) => void,
       ) => {
         if (
-          message.type === `crx-mcp-over-cdp-side-panel:sidePanelVisibilityChangeTest:${this.windowId}`
+          message.type ===
+          `crx-mcp-over-cdp-side-panel:sidePanelVisibilityChangeTest:${this.windowId}`
         ) {
           setTimeout(() => {
             sendResponse();

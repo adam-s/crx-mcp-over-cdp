@@ -25,7 +25,7 @@ import { CRXMCPService, ICRXMCPService } from '@shared/services/crxMCP.service';
 // Define a basic schema for your local async storage
 interface BackgroundStorageSchema {
   [key: string]: unknown;
-  // Example: openAiApiKey?: string;
+  openAiApiKey?: string;
 }
 
 export class BackgroundApp extends Disposable {
@@ -66,7 +66,7 @@ export class BackgroundApp extends Disposable {
     serviceCollection.set(ILocalAsyncStorage, localAsyncStorageService);
     await localAsyncStorageService.start();
 
-    // CRX MCP Service
+    // CRX MCP Service - created after storage service is registered
     const crxMcpService = instantiationService.createInstance(CRXMCPService);
     serviceCollection.set(ICRXMCPService, crxMcpService);
 

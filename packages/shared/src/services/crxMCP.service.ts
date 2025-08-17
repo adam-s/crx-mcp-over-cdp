@@ -1,24 +1,32 @@
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { ILocalAsyncStorage } from '../storage/localAsyncStorage/localAsyncStorage.service';
 import { ChromeExtensionDriver } from '../crx-mcp/chromeExtensionDriver';
 import { CDP } from '../crx-mcp/CDP';
 import { DomInteractionsOperator } from '../crx-mcp/DomInteractionsOperator';
 import { DomSnapshotTaker } from '../crx-mcp/DomSnapshotTaker';
+import { BabyElephantAgentV2Service } from '../crx-mcp/babyElephantAgentV2Service';
 import { VisualSnapshotTaker } from '../crx-mcp/VisualSnapshotTaker';
 import { A11yTreeSnapshotTaker } from '../crx-mcp/A11yTreeSnapshotTaker';
 import { runBabyElephantAgent, runEnhancedBabyElephantAgent } from '../crx-mcp/babyElephantAgent';
 import { DriverTestSuite } from '../crx-mcp/driverTest';
+import { StorageKeys, type SidePanelAppStorageSchema } from '../storage/types/storage.types';
 
 export const ICRXMCPService = createDecorator<ICRXMCPService>('crxMCPService');
 
 export interface ICRXMCPService {
   readonly _serviceBrand: undefined;
   getOpenAIKey(): Promise<string>;
+  setOpenAIKey(apiKey: string): Promise<void>;
   runDriverTests(): Promise<string>; // Changed to return string for JSON serialization
   runAgentTest(task: string): Promise<string>; // Changed to return string for JSON serialization
   runBabyElephantAgent(
     query?: string,
   ): Promise<{ success: boolean; urls: string[]; message: string }>;
+  runBabyElephantAgentV2(
+    task: string,
+    options?: { startUrl?: string; maxSteps?: number; devMode?: boolean },
+  ): Promise<string>;
 
   // MCP Server Functions
   navigateTo(url: string): Promise<string>;
@@ -63,6 +71,8 @@ export class CRXMCPService implements ICRXMCPService {
   private _domSnapshotTaker: DomSnapshotTaker | undefined;
   private _visualSnapshotTaker: VisualSnapshotTaker | undefined;
   private _a11yTreeSnapshotTaker: A11yTreeSnapshotTaker | undefined;
+  private _storageService: ILocalAsyncStorage<SidePanelAppStorageSchema>;
+  private _babyElephantAgentV2Service: BabyElephantAgentV2Service | undefined;
 
   // Static method to set a shared driver instance
   static setSharedDriver(driver: ChromeExtensionDriver): void {
@@ -75,7 +85,8 @@ export class CRXMCPService implements ICRXMCPService {
     return CRXMCPService._sharedDriver;
   }
 
-  constructor() {
+  constructor(@ILocalAsyncStorage storageService: ILocalAsyncStorage<SidePanelAppStorageSchema>) {
+    this._storageService = storageService;
     // Initialize the driver and CDP components
     this._initializeDriver();
   }
@@ -119,11 +130,26 @@ export class CRXMCPService implements ICRXMCPService {
         this._cdp.dom,
         this._cdp.css,
       );
+
+      // Initialize Baby Elephant Agent V2 Service
+      this._babyElephantAgentV2Service = new BabyElephantAgentV2Service({
+        driver: this._driver,
+        domInteractionsOperator: this._domInteractionsOperator,
+        a11yTreeSnapshotTaker: this._a11yTreeSnapshotTaker,
+        getCurrentPageUrl: () => this.getCurrentPageUrl(),
+        getPageSnapshotAsJpegScreenshot: () => this.getPageSnapshotAsJpegScreenshot(),
+        navigateTo: (url: string) => this.navigateTo(url),
+      });
     }
   }
 
   private async _ensureInitialized(): Promise<void> {
-    if (!this._driver || !this._cdp || !this._domInteractionsOperator) {
+    if (
+      !this._driver ||
+      !this._cdp ||
+      !this._domInteractionsOperator ||
+      !this._babyElephantAgentV2Service
+    ) {
       await this._initializeDriver();
     }
   }
@@ -138,9 +164,19 @@ export class CRXMCPService implements ICRXMCPService {
   }
 
   async getOpenAIKey(): Promise<string> {
-    // This would typically get the API key from storage or environment
-    // For now, return a placeholder - this should be implemented based on your needs
-    throw new Error('OpenAI key retrieval not implemented');
+    // Get the API key from persistent storage
+    const apiKey = await this._storageService.get(StorageKeys.OPEN_AI_API_KEY);
+
+    if (!apiKey) {
+      throw new Error('OpenAI API key not found in storage. Please configure your API key.');
+    }
+
+    return apiKey;
+  }
+
+  async setOpenAIKey(apiKey: string): Promise<void> {
+    // Store the API key in persistent storage
+    await this._storageService.set(StorageKeys.OPEN_AI_API_KEY, apiKey);
   }
 
   async runDriverTests(): Promise<string> {
@@ -183,6 +219,27 @@ export class CRXMCPService implements ICRXMCPService {
         urls: [],
         message: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  async runBabyElephantAgentV2(
+    task: string,
+    options: { startUrl?: string; maxSteps?: number; devMode?: boolean } = {},
+  ): Promise<string> {
+    try {
+      await this._ensureInitialized();
+
+      // Get API key
+      const apiKey = await this.getOpenAIKey();
+
+      // Delegate to the specialized service
+      return await this._babyElephantAgentV2Service!.runBabyElephantAgentV2(task, apiKey, options);
+    } catch (error) {
+      return this._safeStringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        message: 'V2 Agent execution failed',
+      });
     }
   }
 
