@@ -16,144 +16,6 @@ declare global {
   }
 }
 
-/* ------------------------- Client-Side Image Extraction Script ------------------------- */
-function createImageExtractionScript(strategy: {
-  selectors: string[];
-  sizeFilter: boolean;
-  urlPatterns: string[];
-}): string {
-  return `(function() {
-    const strategy = ${JSON.stringify(strategy)};
-    console.log('🤖 Using LLM-generated strategy:', strategy);
-    
-    // Get current site for context
-    const hostname = window.location.hostname.toLowerCase();
-    console.log('Current site:', hostname);
-    
-    // Try each LLM-suggested selector in order
-    let imgs = [];
-    for (const selector of strategy.selectors) {
-      try {
-        const elements = document.querySelectorAll(selector);
-        console.log('Selector "' + selector + '" found:', elements.length, 'elements');
-        
-        if (elements.length > 0) {
-          imgs = Array.from(elements);
-          // Apply size filter if recommended by LLM
-          if (strategy.sizeFilter) {
-            imgs = imgs.filter(img => {
-              const rect = img.getBoundingClientRect();
-              return rect.width >= 100 && rect.height >= 100;
-            });
-            console.log('After size filtering:', imgs.length, 'elements');
-          }
-          if (imgs.length > 0) break; // Use first successful strategy
-        }
-      } catch (e) {
-        console.log('Selector error:', selector, e.message);
-      }
-    }
-    
-    // Fallback: generic approach if LLM strategies fail
-    if (imgs.length === 0) {
-      console.log('LLM strategies failed, falling back to generic approach');
-      imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-        const rect = img.getBoundingClientRect();
-        return rect.width >= 100 && rect.height >= 100;
-      });
-      console.log('Generic fallback found:', imgs.length, 'images');
-    }
-    
-    console.log('Total images to process:', imgs.length);
-    
-    // Extract URLs with LLM-informed filtering
-    const extract = (img) => {
-      // Try multiple attributes in order of preference
-      const srcAttrs = ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-url'];
-      let chosen = null;
-      
-      for (const attr of srcAttrs) {
-        const value = img.getAttribute(attr);
-        if (value && !value.startsWith('data:') && !value.includes('base64')) {
-          chosen = value;
-          break;
-        }
-      }
-      
-      // Try srcset as fallback
-      if (!chosen) {
-        const srcset = img.getAttribute('srcset');
-        if (srcset) {
-          const parts = srcset.split(',');
-          const highRes = parts[parts.length - 1]?.trim()?.split(' ')?.[0];
-          if (highRes && !highRes.startsWith('data:')) chosen = highRes;
-        }
-      }
-
-      if (!chosen) return null;
-      
-      try {
-        const url = new URL(chosen, window.location.href).toString();
-        
-        // Apply LLM-suggested URL pattern filtering
-        const hasRelevantPattern = strategy.urlPatterns.some(pattern => 
-          url.toLowerCase().includes(pattern.toLowerCase())
-        );
-        
-        // Enhanced UI filtering
-        const excludePatterns = [
-          'icon', 'logo', 'avatar', 'profile', 'favicon', 'sprite',
-          'static-assets', 'ui-', 'button-', 'nav-', 'header-', 'footer-',
-          'sidebar-', 'menu-', 'search-', '/assets/', '/static/',
-          'placeholder', 'loading', 'spinner', 'arrow', 'chevron'
-        ];
-        
-        const isUIElement = excludePatterns.some(pattern => 
-          url.toLowerCase().includes(pattern)
-        );
-        
-        // For image search sites, prefer URLs with relevant patterns
-        const isImageSearchSite = hostname.includes('google.com') || 
-                                hostname.includes('duckduckgo.com') || 
-                                hostname.includes('bing.com');
-        
-        if (isImageSearchSite) {
-          if (!hasRelevantPattern || isUIElement) {
-            console.log('Filtered out non-content image:', url);
-            return null;
-          }
-        } else {
-          // For other sites, just filter out obvious UI elements
-          if (isUIElement) {
-            console.log('Filtered out UI image:', url);
-            return null;
-          }
-        }
-        
-        console.log('Accepted URL:', url);
-        return url;
-      } catch (e) {
-        console.log('Failed to parse URL:', chosen, e.message);
-        return null;
-      }
-    };
-
-    // Extract and deduplicate URLs
-    const dedup = new Set();
-    for (const img of imgs) {
-      const url = extract(img);
-      if (url) {
-        dedup.add(url);
-        if (dedup.size >= 15) break; // Get a good variety
-      }
-    }
-    
-    const result = Array.from(dedup);
-    console.log('Final extracted URLs:', result.length, result.slice(0, 3));
-    return result;
-  })()`;
-}
-
 /* ------------------------- Client-Side Form Submission Script ------------------------- */
 function createFormSubmissionScript(strategy: {
   method: 'form_submit' | 'enter_key' | 'button_click' | 'auto_submit';
@@ -304,11 +166,13 @@ Examples:
         return {
           selectors: [
             "img[src*='googleusercontent']",
-            "[data-src*='images']",
             "img[src*='gstatic']",
+            "img[src*='images']",
+            'img[data-src]',
+            "img[src]:not([src*='logo']):not([src*='icon'])",
           ],
           sizeFilter: true,
-          urlPatterns: ['googleusercontent', 'gstatic'],
+          urlPatterns: ['googleusercontent', 'gstatic', 'imgur', 'wikimedia'],
         };
       } else if (url.includes('duckduckgo.com')) {
         return {
@@ -419,6 +283,17 @@ Examples:
         `##### [Agent Step ${event.step}] ${event.phase.toUpperCase()}: ${event.message} #####`,
       );
 
+      // Enhanced logging for search plan events
+      if (event.details && event.message.includes('Animal Analysis Complete')) {
+        console.log('🧠 Intelligent Task Analysis Result:', {
+          canonical: event.details.canonical,
+          juvenile: event.details.juvenile,
+          query: event.details.query,
+          engine: event.details.engine,
+          confidence: event.details.confidence,
+        });
+      }
+
       // Note: ServiceConsole logging is now handled by the VS Code event subscription in the hook
       // to avoid duplicate messages. Window events removed to prevent duplication.
     };
@@ -470,22 +345,161 @@ Examples:
         },
         extractImageUrls: async () => {
           try {
-            console.log('🔍 Starting LLM-driven image URL extraction... #####');
+            console.log('🧠 Starting enhanced image URL extraction... #####');
 
-            // Get current URL and generate intelligent extraction strategy
+            // Step 1: Comprehensive client-side collection of ALL image candidates
+            const candidateCollectionScript = `
+(function() {
+  const candidates = new Set();
+  
+  // Function to decode DuckDuckGo proxy URLs
+  function decodeDuckDuckGoUrl(url) {
+    try {
+      if (url.includes('external-content.duckduckgo.com/iu/?u=')) {
+        const match = url.match(/[?&]u=([^&]+)/);
+        if (match) {
+          return decodeURIComponent(match[1]);
+        }
+      }
+      return url;
+    } catch (e) {
+      return url;
+    }
+  }
+  
+  // Function to extract URLs from srcset
+  function extractFromSrcset(srcset) {
+    if (!srcset) return [];
+    return srcset.split(',')
+      .map(entry => entry.trim().split(' ')[0])
+      .filter(url => url && url.startsWith('http'));
+  }
+  
+  // Collect from IMG elements
+  document.querySelectorAll('img').forEach(img => {
+    // Main src
+    if (img.src && img.src.startsWith('http')) {
+      candidates.add(decodeDuckDuckGoUrl(img.src));
+    }
+    
+    // currentSrc (often different from src for responsive images)
+    if (img.currentSrc && img.currentSrc.startsWith('http')) {
+      candidates.add(decodeDuckDuckGoUrl(img.currentSrc));
+    }
+    
+    // data-src for lazy loading
+    if (img.dataset.src && img.dataset.src.startsWith('http')) {
+      candidates.add(decodeDuckDuckGoUrl(img.dataset.src));
+    }
+    
+    // Other common lazy-loading attributes
+    ['data-lazy-src', 'data-original', 'data-source'].forEach(attr => {
+      const val = img.getAttribute(attr);
+      if (val && val.startsWith('http')) {
+        candidates.add(decodeDuckDuckGoUrl(val));
+      }
+    });
+    
+    // srcset entries
+    extractFromSrcset(img.srcset).forEach(url => {
+      candidates.add(decodeDuckDuckGoUrl(url));
+    });
+    
+    // data-srcset
+    extractFromSrcset(img.dataset.srcset).forEach(url => {
+      candidates.add(decodeDuckDuckGoUrl(url));
+    });
+  });
+  
+  // Filter and return array
+  return Array.from(candidates)
+    .filter(url => {
+      // Remove data URLs, tiny images, and common UI elements
+      if (url.startsWith('data:')) return false;
+      if (url.includes('1x1') || url.includes('spacer') || url.includes('pixel')) return false;
+      if (url.includes('icon') || url.includes('logo') || url.includes('avatar')) return false;
+      return true;
+    })
+    .slice(0, 50); // Limit to 50 candidates for performance
+})()
+            `;
+
+            // Execute the comprehensive collection script
+            const candidateUrls = await driver.executeScript<string[]>(candidateCollectionScript);
+            console.log('🧠 Client-side collector found:', candidateUrls.length, 'candidate URLs');
+            console.log('🧠 Sample candidates:', candidateUrls.slice(0, 5));
+
+            if (candidateUrls.length === 0) {
+              return `❌ Found 0 image URLs. No images detected on the page.`;
+            }
+
+            // Step 2: Use LLM to filter and rank the candidates
             const currentUrl = await this.dependencies.getCurrentPageUrl();
-            const strategy = await this._generateImageExtractionStrategy(currentUrl, task, llm);
+            const filterPrompt = `
+You are filtering image URLs for relevance to a user's task.
 
-            // Execute the LLM-generated strategy using the extracted script
-            const urls: string[] = await driver.executeScript<string[]>(
-              createImageExtractionScript(strategy),
-            );
+**User Task:** ${task}
+**Current URL:** ${currentUrl}
+**Image URL Candidates (${candidateUrls.length} total):**
+${candidateUrls
+  .slice(0, 30)
+  .map((url, i) => `${i + 1}. ${url}`)
+  .join('\\n')}
+${candidateUrls.length > 30 ? `... and ${candidateUrls.length - 30} more URLs` : ''}
 
-            console.log('LLM-driven image extraction completed, found:', urls.length, 'URLs #####');
-            return urls;
+Instructions:
+1. Select the most relevant image URLs that match the user's task
+2. Prioritize high-quality, content images over thumbnails
+3. Avoid UI elements, icons, ads, or unrelated images  
+4. Return 8-15 of the best URLs
+5. Return ONLY a JSON array of selected URLs
+
+Example: ["https://example.com/relevant1.jpg", "https://example.com/relevant2.png"]`;
+
+            try {
+              const response = await llm.invoke(filterPrompt);
+              const responseText = response.content as string;
+
+              console.log('🧠 LLM filter response:', responseText.substring(0, 200), '...');
+
+              // Parse LLM response
+              let selectedUrls: string[] = [];
+              try {
+                const jsonMatch = responseText.match(/\\[.*\\]/s);
+                if (jsonMatch) {
+                  selectedUrls = JSON.parse(jsonMatch[0]);
+                }
+              } catch (parseError) {
+                console.log('🧠 LLM filter parse failed, using first 10 candidates');
+                selectedUrls = candidateUrls.slice(0, 10);
+              }
+
+              // Validate selected URLs are from our candidates
+              const validSelected = selectedUrls.filter(
+                url => candidateUrls.includes(url) && url.startsWith('http'),
+              );
+
+              if (validSelected.length === 0) {
+                // Fallback to best candidates if LLM filtering failed
+                validSelected.push(...candidateUrls.slice(0, 8));
+              }
+
+              const finalUrls = validSelected.slice(0, 15); // Limit to 15 final URLs
+
+              console.log('🧠 Enhanced extraction completed, found:', finalUrls.length, 'URLs');
+              console.log('🧠 Final URLs:', finalUrls.slice(0, 3));
+
+              const successMessage = `✅ SUCCESS: Found ${finalUrls.length} image URLs: ${finalUrls.slice(0, 3).join(', ')}${finalUrls.length > 3 ? ` ... and ${finalUrls.length - 3} more` : ''}`;
+              console.log('🧠 Returning success message:', successMessage);
+              return successMessage;
+            } catch (llmError) {
+              console.error('🧠 LLM filtering failed, using raw candidates:', llmError);
+              const fallbackUrls = candidateUrls.slice(0, 10);
+              return `✅ SUCCESS: Found ${fallbackUrls.length} image URLs: ${fallbackUrls.slice(0, 3).join(', ')}${fallbackUrls.length > 3 ? ` ... and ${fallbackUrls.length - 3} more` : ''}`;
+            }
           } catch (error) {
-            console.error('LLM-driven image extraction failed:', error, '#####');
-            return [];
+            console.error('🧠 Enhanced extraction failed completely:', error);
+            return `❌ Image extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
           }
         },
         clickNodeById: async (backendNodeId: number) => {

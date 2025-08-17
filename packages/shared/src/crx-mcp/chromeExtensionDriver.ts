@@ -251,10 +251,41 @@ export class ChromeExtensionDriver implements IChromeExtensionDriver {
       throw new Error('Debugger not attached');
     }
 
-    // The debugger API returns object | undefined; cast to mapped return type
-    const result = await chrome.debugger.sendCommand({ tabId: this.tabId }, method, params);
+    try {
+      // The debugger API returns object | undefined; cast to mapped return type
+      const result = await chrome.debugger.sendCommand({ tabId: this.tabId }, method, params);
+      return result as T;
+    } catch (error) {
+      // Check if the error is due to tab being closed/invalid
+      if (
+        error instanceof Error &&
+        (error.message.includes('No tab with') ||
+          error.message.includes('tab has been closed') ||
+          error.message.includes('Cannot access'))
+      ) {
+        console.log('🔄 Tab invalid, attempting to recover by creating new connection...');
 
-    return result as T;
+        // Reset the connection state
+        this.attached = false;
+        this.tabId = undefined;
+        this.cdpConnectionPromise = undefined;
+
+        // Create a new CDP connection which will find/create a new tab
+        await this.createCDPConnection();
+
+        // Retry the command with the new connection
+        if (!this.tabId) {
+          throw new Error('Failed to recover from tab closure - no valid tab available');
+        }
+
+        console.log(`🔄 Retrying command ${method} with new tab ${this.tabId}`);
+        const result = await chrome.debugger.sendCommand({ tabId: this.tabId }, method, params);
+        return result as T;
+      }
+
+      // Re-throw non-tab-related errors
+      throw error;
+    }
   }
 
   async sendDevToolsCommand(method: string, params?: Record<string, unknown>): Promise<void> {
@@ -284,13 +315,49 @@ export class ChromeExtensionDriver implements IChromeExtensionDriver {
     if (this.isRestrictedUrl(url)) {
       throw new Error(`Cannot navigate to restricted URL: ${url}`);
     }
-    console.log(`📡 Sending Page.navigate command...`);
-    await this.sendDevToolsCommand('Page.navigate', { url });
-    console.log(`⏳ Waiting for page load...`);
-    await this.waitForLoad();
-    console.log(`🎯 Focusing page...`);
-    await this.focusPage();
-    console.log(`✅ Driver.get() completed successfully`);
+
+    // Ensure we have a valid connection before navigation
+    if (!this.attached || !this.tabId) {
+      console.log('🔄 No active connection, creating new one before navigation...');
+      await this.createCDPConnection();
+    }
+
+    try {
+      console.log(`📡 Sending Page.navigate command...`);
+      await this.sendDevToolsCommand('Page.navigate', { url });
+      console.log(`⏳ Waiting for page load...`);
+      await this.waitForLoad();
+      console.log(`🎯 Focusing page...`);
+      await this.focusPage();
+      console.log(`✅ Driver.get() completed successfully`);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('No tab with') ||
+          error.message.includes('tab has been closed') ||
+          error.message.includes('Cannot access'))
+      ) {
+        console.log('🔄 Navigation failed due to invalid tab, recovering and retrying...');
+
+        // Reset connection and retry
+        this.attached = false;
+        this.tabId = undefined;
+        this.cdpConnectionPromise = undefined;
+
+        await this.createCDPConnection();
+
+        // Retry navigation
+        console.log(`📡 Retrying Page.navigate command after recovery...`);
+        await this.sendDevToolsCommand('Page.navigate', { url });
+        console.log(`⏳ Waiting for page load...`);
+        await this.waitForLoad();
+        console.log(`🎯 Focusing page...`);
+        await this.focusPage();
+        console.log(`✅ Driver.get() completed successfully after recovery`);
+      } else {
+        throw error;
+      }
+    }
   }
 
   async createNewTab(url?: string): Promise<void> {
@@ -335,9 +402,45 @@ export class ChromeExtensionDriver implements IChromeExtensionDriver {
   }
 
   async getCurrentUrl(): Promise<string> {
-    if (!this.tabId) throw new Error('No tab attached');
-    const tab = await chrome.tabs.get(this.tabId);
-    return tab.url || '';
+    if (!this.tabId) {
+      // Try to create a new connection if we don't have a tab
+      await this.createCDPConnection();
+      if (!this.tabId) throw new Error('No tab available after recovery attempt');
+    }
+
+    try {
+      const tab = await chrome.tabs.get(this.tabId);
+      return tab.url || '';
+    } catch (error) {
+      // Check if the error is due to tab being closed/invalid
+      if (
+        error instanceof Error &&
+        (error.message.includes('No tab with') ||
+          error.message.includes('tab has been closed') ||
+          error.message.includes('Cannot access'))
+      ) {
+        console.log('🔄 Tab invalid in getCurrentUrl, attempting to recover...');
+
+        // Reset the connection state
+        this.attached = false;
+        this.tabId = undefined;
+        this.cdpConnectionPromise = undefined;
+
+        // Create a new CDP connection
+        await this.createCDPConnection();
+
+        if (!this.tabId) {
+          throw new Error('Failed to recover from tab closure - no valid tab available');
+        }
+
+        // Retry getting the URL
+        const tab = await chrome.tabs.get(this.tabId);
+        return tab.url || '';
+      }
+
+      // Re-throw non-tab-related errors
+      throw error;
+    }
   }
 
   navigate() {
