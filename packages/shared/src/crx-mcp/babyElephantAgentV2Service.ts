@@ -6,6 +6,222 @@ import { runAgentV2, type AgentTools, type AgentIO } from './babyElephantAgent.v
 import type { ChromeExtensionDriver } from './chromeExtensionDriver';
 import type { DomInteractionsOperator } from './DomInteractionsOperator';
 import type { A11yTreeSnapshotTaker } from './A11yTreeSnapshotTaker';
+import { ChatOpenAI } from '@langchain/openai';
+
+/* ------------------------- Client-Side Image Extraction Script ------------------------- */
+function createImageExtractionScript(strategy: {
+  selectors: string[];
+  sizeFilter: boolean;
+  urlPatterns: string[];
+}): string {
+  return `(function() {
+    const strategy = ${JSON.stringify(strategy)};
+    console.log('🤖 Using LLM-generated strategy:', strategy);
+    
+    // Get current site for context
+    const hostname = window.location.hostname.toLowerCase();
+    console.log('Current site:', hostname);
+    
+    // Try each LLM-suggested selector in order
+    let imgs = [];
+    for (const selector of strategy.selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        console.log('Selector "' + selector + '" found:', elements.length, 'elements');
+        
+        if (elements.length > 0) {
+          imgs = Array.from(elements);
+          // Apply size filter if recommended by LLM
+          if (strategy.sizeFilter) {
+            imgs = imgs.filter(img => {
+              const rect = img.getBoundingClientRect();
+              return rect.width >= 100 && rect.height >= 100;
+            });
+            console.log('After size filtering:', imgs.length, 'elements');
+          }
+          if (imgs.length > 0) break; // Use first successful strategy
+        }
+      } catch (e) {
+        console.log('Selector error:', selector, e.message);
+      }
+    }
+    
+    // Fallback: generic approach if LLM strategies fail
+    if (imgs.length === 0) {
+      console.log('LLM strategies failed, falling back to generic approach');
+      imgs = Array.from(document.querySelectorAll('img')).filter(img => {
+        const rect = img.getBoundingClientRect();
+        return rect.width >= 100 && rect.height >= 100;
+      });
+      console.log('Generic fallback found:', imgs.length, 'images');
+    }
+    
+    console.log('Total images to process:', imgs.length);
+    
+    // Extract URLs with LLM-informed filtering
+    const extract = (img) => {
+      // Try multiple attributes in order of preference
+      const srcAttrs = ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-url'];
+      let chosen = null;
+      
+      for (const attr of srcAttrs) {
+        const value = img.getAttribute(attr);
+        if (value && !value.startsWith('data:') && !value.includes('base64')) {
+          chosen = value;
+          break;
+        }
+      }
+      
+      // Try srcset as fallback
+      if (!chosen) {
+        const srcset = img.getAttribute('srcset');
+        if (srcset) {
+          const parts = srcset.split(',');
+          const highRes = parts[parts.length - 1]?.trim()?.split(' ')?.[0];
+          if (highRes && !highRes.startsWith('data:')) chosen = highRes;
+        }
+      }
+
+      if (!chosen) return null;
+      
+      try {
+        const url = new URL(chosen, window.location.href).toString();
+        
+        // Apply LLM-suggested URL pattern filtering
+        const hasRelevantPattern = strategy.urlPatterns.some(pattern => 
+          url.toLowerCase().includes(pattern.toLowerCase())
+        );
+        
+        // Enhanced UI filtering
+        const excludePatterns = [
+          'icon', 'logo', 'avatar', 'profile', 'favicon', 'sprite',
+          'static-assets', 'ui-', 'button-', 'nav-', 'header-', 'footer-',
+          'sidebar-', 'menu-', 'search-', '/assets/', '/static/',
+          'placeholder', 'loading', 'spinner', 'arrow', 'chevron'
+        ];
+        
+        const isUIElement = excludePatterns.some(pattern => 
+          url.toLowerCase().includes(pattern)
+        );
+        
+        // For image search sites, prefer URLs with relevant patterns
+        const isImageSearchSite = hostname.includes('google.com') || 
+                                hostname.includes('duckduckgo.com') || 
+                                hostname.includes('bing.com');
+        
+        if (isImageSearchSite) {
+          if (!hasRelevantPattern || isUIElement) {
+            console.log('Filtered out non-content image:', url);
+            return null;
+          }
+        } else {
+          // For other sites, just filter out obvious UI elements
+          if (isUIElement) {
+            console.log('Filtered out UI image:', url);
+            return null;
+          }
+        }
+        
+        console.log('Accepted URL:', url);
+        return url;
+      } catch (e) {
+        console.log('Failed to parse URL:', chosen, e.message);
+        return null;
+      }
+    };
+
+    // Extract and deduplicate URLs
+    const dedup = new Set();
+    for (const img of imgs) {
+      const url = extract(img);
+      if (url) {
+        dedup.add(url);
+        if (dedup.size >= 15) break; // Get a good variety
+      }
+    }
+    
+    const result = Array.from(dedup);
+    console.log('Final extracted URLs:', result.length, result.slice(0, 3));
+    return result;
+  })()`;
+}
+
+/* ------------------------- Client-Side Form Submission Script ------------------------- */
+function createFormSubmissionScript(strategy: {
+  method: 'form_submit' | 'enter_key' | 'button_click' | 'auto_submit';
+  buttonSelector?: string;
+  waitTime?: number;
+}): string {
+  return `(function() {
+    const strategy = ${JSON.stringify(strategy)};
+    console.log('🤖 Using LLM-generated form submission strategy:', strategy);
+    
+    const active = document.activeElement;
+    if (!active) {
+      console.log('No active element found');
+      return false;
+    }
+    
+    try {
+      switch (strategy.method) {
+        case 'form_submit':
+          // Find and submit the nearest form
+          const form = active.form || active.closest('form');
+          if (form && typeof form.submit === 'function') {
+            console.log('Submitting form using form.submit()');
+            form.submit();
+            return true;
+          }
+          console.log('No form found for form_submit method');
+          return false;
+          
+        case 'button_click':
+          // Find and click a specific submit button
+          if (strategy.buttonSelector) {
+            const button = document.querySelector(strategy.buttonSelector);
+            if (button) {
+              console.log('Clicking submit button:', strategy.buttonSelector);
+              button.click();
+              return true;
+            }
+          }
+          // Fallback: look for common submit button patterns
+          const submitBtn = document.querySelector('button[type="submit"], input[type="submit"], button:contains("Search"), button:contains("Submit")');
+          if (submitBtn) {
+            console.log('Clicking found submit button');
+            submitBtn.click();
+            return true;
+          }
+          console.log('No submit button found');
+          return false;
+          
+        case 'enter_key':
+          // Synthesize Enter key press
+          console.log('Synthesizing Enter key press');
+          const keydown = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+          const keyup = new KeyboardEvent('keyup', { key: 'Enter', bubbles: true, cancelable: true });
+          active.dispatchEvent(keydown);
+          active.dispatchEvent(keyup);
+          return true;
+          
+        case 'auto_submit':
+          // Wait for auto-submission (some sites auto-submit on input)
+          console.log('Waiting for auto-submission, wait time:', strategy.waitTime || 1000, 'ms');
+          setTimeout(() => {
+            console.log('Auto-submission wait completed');
+          }, strategy.waitTime || 1000);
+          return true;
+          
+        default:
+          console.log('Unknown submission method:', strategy.method);
+          return false;
+      }
+    } catch (error) {
+      console.log('Form submission error:', error.message);
+      return false;
+    }
+  })()`;
+}
 
 export interface BabyElephantAgentV2ServiceDependencies {
   driver: ChromeExtensionDriver;
@@ -34,6 +250,155 @@ export class BabyElephantAgentV2Service {
     }
   }
 
+  // LLM-driven image extraction strategy generator
+  private async _generateImageExtractionStrategy(
+    currentUrl: string,
+    task: string,
+    llm: ChatOpenAI,
+  ): Promise<{ selectors: string[]; sizeFilter: boolean; urlPatterns: string[] }> {
+    const strategyPrompt = `
+You are analyzing a webpage to determine the best strategy for extracting relevant images based on the user's task.
+
+**Current URL:** ${currentUrl}
+**User Task:** ${task}
+
+Based on the URL and task, generate a smart image extraction strategy. Consider:
+1. What type of website this appears to be (search engine, social media, e-commerce, news, etc.)
+2. What CSS selectors would target the most relevant images for this task
+3. Whether to filter by image size (to avoid UI elements)
+4. What URL patterns indicate the images are content vs UI elements
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "selectors": ["selector1", "selector2", "selector3"],
+  "sizeFilter": true,
+  "urlPatterns": ["pattern1", "pattern2"]
+}
+
+Examples:
+- For Google Images: {"selectors": ["img[src*='googleusercontent']", "[data-src*='images']"], "sizeFilter": true, "urlPatterns": ["googleusercontent", "gstatic"]}
+- For Reddit: {"selectors": ["img[src*='redd.it']", ".ImageBox-image", "[data-test-id='post-content'] img"], "sizeFilter": false, "urlPatterns": ["redd.it", "imgur", "redgifs"]}
+- For news sites: {"selectors": ["article img", ".content img", "main img"], "sizeFilter": true, "urlPatterns": ["cdn", "media", "images"]}`;
+
+    try {
+      const response = await llm.invoke(strategyPrompt);
+      const result = JSON.parse(response.content as string);
+      console.log(
+        `[_generateImageExtractionStrategy] LLM generated strategy: ${JSON.stringify(result)} #####`,
+      );
+      return result;
+    } catch (error) {
+      console.log(`[_generateImageExtractionStrategy] LLM error, using fallback: ${error} #####`);
+      // Intelligent fallback based on URL analysis
+      const url = currentUrl.toLowerCase();
+      if (url.includes('google.com') && url.includes('images')) {
+        return {
+          selectors: [
+            "img[src*='googleusercontent']",
+            "[data-src*='images']",
+            "img[src*='gstatic']",
+          ],
+          sizeFilter: true,
+          urlPatterns: ['googleusercontent', 'gstatic'],
+        };
+      } else if (url.includes('duckduckgo.com')) {
+        return {
+          selectors: ["img[src*='external-content.duckduckgo.com']", '.tile--img__img'],
+          sizeFilter: true,
+          urlPatterns: ['external-content.duckduckgo.com', 'bing.com'],
+        };
+      } else if (url.includes('reddit.com')) {
+        return {
+          selectors: [
+            "img[src*='redd.it']",
+            '.ImageBox-image',
+            "[data-test-id='post-content'] img",
+          ],
+          sizeFilter: false,
+          urlPatterns: ['redd.it', 'imgur', 'redgifs'],
+        };
+      } else {
+        // Generic strategy for unknown sites
+        return {
+          selectors: ['img', 'picture img', 'figure img'],
+          sizeFilter: true,
+          urlPatterns: ['cdn', 'media', 'images', 'static'],
+        };
+      }
+    }
+  }
+
+  // LLM-driven form submission strategy generator
+  private async _generateFormSubmissionStrategy(
+    currentUrl: string,
+    inputText: string,
+    llm: ChatOpenAI,
+  ): Promise<{
+    method: 'form_submit' | 'enter_key' | 'button_click' | 'auto_submit';
+    buttonSelector?: string;
+    waitTime?: number;
+  }> {
+    const submissionPrompt = `
+You are analyzing a webpage to determine the best strategy for submitting a form after typing text into an input field.
+
+**Current URL:** ${currentUrl}
+**Text that was typed:** ${inputText}
+
+Based on the URL and context, determine the most appropriate form submission method. Consider:
+1. What type of website this appears to be (search engine, login form, contact form, etc.)
+2. Whether this is likely a search input that expects Enter key or button click
+3. Whether the site might auto-submit after typing
+4. The most reliable submission method for this type of site
+
+Respond with ONLY a JSON object in this exact format:
+{
+  "method": "form_submit|enter_key|button_click|auto_submit",
+  "buttonSelector": "optional CSS selector for button",
+  "waitTime": "optional wait time in ms for auto_submit"
+}
+
+Examples:
+- For search engines: {"method": "enter_key"}
+- For forms with visible submit buttons: {"method": "button_click", "buttonSelector": "button[type='submit']"}
+- For complex forms: {"method": "form_submit"}
+- For auto-complete search: {"method": "auto_submit", "waitTime": 500}`;
+
+    try {
+      const response = await llm.invoke(submissionPrompt);
+      const result = JSON.parse(response.content as string);
+      console.log(
+        `[_generateFormSubmissionStrategy] LLM generated strategy: ${JSON.stringify(result)} #####`,
+      );
+      return result;
+    } catch (error) {
+      console.log(`[_generateFormSubmissionStrategy] LLM error, using fallback: ${error} #####`);
+      // Intelligent fallback based on URL and text analysis
+      const url = currentUrl.toLowerCase();
+      const text = inputText.toLowerCase();
+
+      if (
+        url.includes('google.com') ||
+        url.includes('duckduckgo.com') ||
+        url.includes('bing.com')
+      ) {
+        // Search engines typically work with Enter key
+        return { method: 'enter_key' };
+      } else if (text.includes('search') || url.includes('search')) {
+        // Likely a search box
+        return { method: 'enter_key' };
+      } else if (url.includes('login') || url.includes('auth') || text.includes('password')) {
+        // Login forms often need button clicks
+        return {
+          method: 'button_click',
+          buttonSelector: 'button[type="submit"], input[type="submit"]',
+        };
+      } else {
+        // Generic form submission
+        return { method: 'form_submit' };
+      }
+    }
+  }
+
   async runBabyElephantAgentV2(
     task: string,
     apiKey: string,
@@ -41,6 +406,13 @@ export class BabyElephantAgentV2Service {
   ): Promise<string> {
     try {
       const { driver, domInteractionsOperator, a11yTreeSnapshotTaker } = this.dependencies;
+
+      // Create LLM instance for intelligent decision making
+      const llm = new ChatOpenAI({
+        apiKey,
+        model: options.devMode ? 'gpt-4o-mini' : 'gpt-4o',
+        temperature: 0,
+      });
 
       // Create tools interface for v2 agent
       const tools: AgentTools = {
@@ -80,167 +452,21 @@ export class BabyElephantAgentV2Service {
         },
         extractImageUrls: async () => {
           try {
-            // Universal image scraping script that adapts to different websites
-            const urls: string[] = await driver.executeScript<string[]>(`(function() {
-              console.log('🔍 Starting universal image URL extraction...');
-              
-              // Detect current website
-              const hostname = window.location.hostname.toLowerCase();
-              console.log('Current site:', hostname);
-              
-              // Website-specific strategies
-              const strategies = [
-                // Strategy 1: Google Images
-                () => {
-                  if (hostname.includes('google.com')) {
-                    const imgElements = document.querySelectorAll('[data-src*="images"], img[src*="googleusercontent"], img[src*="gstatic"]');
-                    console.log('Google Images strategy - found:', imgElements.length);
-                    return Array.from(imgElements);
-                  }
-                  return [];
-                },
-                
-                // Strategy 2: DuckDuckGo Images
-                () => {
-                  if (hostname.includes('duckduckgo.com')) {
-                    const imgElements = document.querySelectorAll('img[src*="external-content.duckduckgo.com"], img[data-src*="external-content.duckduckgo.com"], .tile--img__img');
-                    console.log('DuckDuckGo Images strategy - found:', imgElements.length);
-                    return Array.from(imgElements);
-                  }
-                  return [];
-                },
-                
-                // Strategy 3: Reddit
-                () => {
-                  if (hostname.includes('reddit.com')) {
-                    const imgElements = document.querySelectorAll('img[src*="redd.it"], img[src*="redgifs"], img[src*="imgur"], .ImageBox-image, [data-test-id="post-content"] img');
-                    console.log('Reddit strategy - found:', imgElements.length);
-                    return Array.from(imgElements);
-                  }
-                  return [];
-                },
-                
-                // Strategy 4: Bing Images
-                () => {
-                  if (hostname.includes('bing.com')) {
-                    const imgElements = document.querySelectorAll('.iusc img, .imgpt img, img[src*="tse"]');
-                    console.log('Bing Images strategy - found:', imgElements.length);
-                    return Array.from(imgElements);
-                  }
-                  return [];
-                },
-                
-                // Strategy 5: Generic - Large images (likely content, not UI)
-                () => {
-                  const imgElements = Array.from(document.querySelectorAll('img')).filter(img => {
-                    const rect = img.getBoundingClientRect();
-                    return rect.width >= 100 && rect.height >= 100; // Reasonable size images
-                  });
-                  console.log('Generic large images strategy - found:', imgElements.length);
-                  return imgElements;
-                },
-                
-                // Strategy 6: All HTTP/HTTPS images
-                () => {
-                  const imgElements = document.querySelectorAll('img[src^="http"], img[data-src^="http"]');
-                  console.log('HTTP images strategy - found:', imgElements.length);
-                  return Array.from(imgElements);
-                },
-                
-                // Strategy 7: All img elements (last resort)
-                () => {
-                  const imgElements = document.querySelectorAll('img');
-                  console.log('All images strategy - found:', imgElements.length);
-                  return Array.from(imgElements);
-                }
-              ];
-              
-              let imgs = [];
-              for (const strategy of strategies) {
-                imgs = strategy();
-                if (imgs.length > 0) break;
-              }
-              
-              console.log('Total images found:', imgs.length);
-              
-              const extract = (img) => {
-                // Try multiple attributes in order of preference
-                const srcAttrs = ['src', 'data-src', 'data-lazy-src', 'data-original', 'data-url'];
-                let chosen = null;
-                
-                for (const attr of srcAttrs) {
-                  const value = img.getAttribute(attr);
-                  if (value && !value.startsWith('data:') && !value.includes('base64')) {
-                    chosen = value;
-                    break;
-                  }
-                }
-                
-                // Try srcset as fallback
-                if (!chosen) {
-                  const srcset = img.getAttribute('srcset');
-                  if (srcset) {
-                    const parts = srcset.split(',');
-                    // Get the highest resolution version
-                    const highRes = parts[parts.length - 1]?.trim()?.split(' ')?.[0];
-                    if (highRes && !highRes.startsWith('data:')) chosen = highRes;
-                  }
-                }
+            console.log('🔍 Starting LLM-driven image URL extraction... #####');
 
-                if (!chosen) return null;
-                
-                try {
-                  const url = new URL(chosen, window.location.href).toString();
-                  
-                  // Enhanced filtering for UI/non-content images
-                  const excludePatterns = [
-                    'icon', 'logo', 'avatar', 'profile', 'favicon', 'sprite',
-                    'static-assets', 'feature-image', 'ui-', 'button-', 'nav-',
-                    'header-', 'footer-', 'sidebar-', 'menu-', 'search-',
-                    '/assets/', '/static/', '/images/ui/', '/img/ui/',
-                    'placeholder', 'loading', 'spinner', 'arrow', 'chevron'
-                  ];
-                  
-                  // Check if URL contains any exclude patterns
-                  if (excludePatterns.some(pattern => url.toLowerCase().includes(pattern))) {
-                    console.log('Filtered out UI image:', url);
-                    return null;
-                  }
-                  
-                  // For DuckDuckGo specifically, only include external-content URLs for image search
-                  if (hostname.includes('duckduckgo.com')) {
-                    const acceptable = ['external-content.duckduckgo.com', 'bing.com', 'yandex', 'imgur.com', 'redd.it', 'googleusercontent.com'];
-                    if (!acceptable.some(dom => url.includes(dom))) {
-                      console.log('Filtered out DuckDuckGo non-search image:', url);
-                      return null;
-                    }
-                  }
-                  
-                  console.log('Accepted URL:', url);
-                  return url;
-                } catch (e) {
-                  console.log('Failed to parse URL:', chosen, e.message);
-                  return null;
-                }
-              };
+            // Get current URL and generate intelligent extraction strategy
+            const currentUrl = await this.dependencies.getCurrentPageUrl();
+            const strategy = await this._generateImageExtractionStrategy(currentUrl, task, llm);
 
-              const dedup = new Set();
-              for (const img of imgs) {
-                const url = extract(img);
-                if (url) {
-                  dedup.add(url);
-                  if (dedup.size >= 15) break; // Get a good variety
-                }
-              }
-              
-              const result = Array.from(dedup);
-              console.log('Final extracted URLs:', result.length, result.slice(0, 3));
-              return result;
-            })()`);
-            console.log('Universal image extraction completed, found:', urls.length, 'URLs');
+            // Execute the LLM-generated strategy using the extracted script
+            const urls: string[] = await driver.executeScript<string[]>(
+              createImageExtractionScript(strategy),
+            );
+
+            console.log('LLM-driven image extraction completed, found:', urls.length, 'URLs #####');
             return urls;
           } catch (error) {
-            console.error('Universal image extraction failed:', error);
+            console.error('LLM-driven image extraction failed:', error, '#####');
             return [];
           }
         },
@@ -257,34 +483,36 @@ export class BabyElephantAgentV2Service {
           try {
             await domInteractionsOperator.doSetValue(backendNodeId, text);
 
-            // Heuristic: try to submit the form / press Enter if a search box was likely edited.
-            // We do this best-effort and ignore errors.
+            // LLM-driven form submission strategy
             try {
+              console.log('🤖 Using LLM-driven form submission strategy... #####');
+              const currentUrl = await this.dependencies.getCurrentPageUrl();
+              const submissionStrategy = await this._generateFormSubmissionStrategy(
+                currentUrl,
+                text,
+                llm,
+              );
+
+              // Execute the LLM-generated submission strategy
+              const submitted = await driver.executeScript<boolean>(
+                createFormSubmissionScript(submissionStrategy),
+              );
+
+              console.log(`LLM-driven form submission completed, success: ${submitted} #####`);
+            } catch (error) {
+              console.log(`LLM-driven form submission failed, using fallback: ${error} #####`);
+              // Fallback to simple Enter key approach
               await driver.executeScript<boolean>(`(function() {
-                // Prefer submitting the nearest form; otherwise synthesize Enter on the active element
-                const active = document.activeElement as HTMLElement | null;
-                const trySubmit = (el: Element | null) => {
-                  if (!el) return false;
-                  // @ts-ignore - form may exist on inputs
-                  const f = (el as any).form || el.closest('form');
-                  if (f && typeof f.submit === 'function') { f.submit(); return true; }
-                  return false;
-                };
-
-                if (trySubmit(active)) return true;
-
-                // Fallback: synthesize Enter key press to trigger site handlers
+                const active = document.activeElement;
                 if (active) {
                   const kd = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
-                  const ku = new KeyboardEvent('keyup',   { key: 'Enter', bubbles: true });
+                  const ku = new KeyboardEvent('keyup', { key: 'Enter', bubbles: true });
                   active.dispatchEvent(kd);
                   active.dispatchEvent(ku);
                   return true;
                 }
                 return false;
               })()`);
-            } catch {
-              /* non-fatal */
             }
 
             return `Successfully typed "${text}" into element ${backendNodeId}`;

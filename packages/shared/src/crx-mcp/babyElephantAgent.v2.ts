@@ -65,55 +65,136 @@ interface AgentState {
 }
 
 /* ------------------------- URL Helpers ------------------------- */
-const isDuckDuckGoImages = (u: string) =>
-  /duckduckgo\.com\/\?[^#]*(\b(iax|iar|ia)=images\b)/i.test(u);
-const isGoogleImagesResults = (u: string) =>
-  /google\.[^/]+\/search\?.*\btbm=isch\b/i.test(u) ||
-  (/google\.[^/]+\/search/.test(u) && u.includes('udm=2')) ||
-  /images\.google\.[^/]+/.test(u);
-const isBingImagesResults = (u: string) => /bing\.com\/images\/search\?.*\bq=/i.test(u);
-const isAnyImageResults = (u: string) =>
-  isDuckDuckGoImages(u) || isGoogleImagesResults(u) || isBingImagesResults(u);
+async function isRelevantResultsPage(
+  currentUrl: string,
+  task: string,
+  llm: ChatOpenAI,
+): Promise<boolean> {
+  const urlAnalysisPrompt = `
+You are analyzing whether a URL represents a results page that would be relevant for completing a given task.
 
-/* ------------------------- Search Term Extraction ------------------------- */
-function extractSearchTermFromTask(task: string): string {
-  // Try to extract search term from common patterns
-  const patterns = [
-    /search for ["']([^"']+)["']/i,
-    /find.*["']([^"']+)["']/i,
-    /looking for ["']([^"']+)["']/i,
-    /pictures of ([^,.\n]+)/i,
-    /images of ([^,.\n]+)/i,
-    /find ([^,.\n]+) (pictures|images)/i,
-    /search.*for ([^,.\n]+)/i,
-  ];
+**Task:** ${task}
+**Current URL:** ${currentUrl}
 
-  for (const pattern of patterns) {
-    const match = task.match(pattern);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
+Based on the URL structure, domain, and parameters, does this appear to be a results page where you could extract content relevant to the task?
+
+Examples:
+- For image tasks: Google Images, DuckDuckGo Images, Bing Images pages
+- For news tasks: Google News, news website search results
+- For shopping tasks: Shopping search results pages
+- For video tasks: YouTube search results, video search pages
+
+Respond with only "true" or "false".`;
+
+  try {
+    const response = await llm.invoke(urlAnalysisPrompt);
+    const result = (response.content as string).toLowerCase().trim();
+    return result === 'true';
+  } catch (error) {
+    console.log(`[isRelevantResultsPage] LLM error, falling back to false: ${error} #####`);
+    return false;
   }
-
-  // Fallback: extract any quoted text
-  const quotedMatch = task.match(/["']([^"']+)["']/);
-  if (quotedMatch && quotedMatch[1]) {
-    return quotedMatch[1].trim();
-  }
-
-  // Last resort: look for common words after "baby" or similar
-  const babyMatch = task.match(/baby\s+(\w+)/i);
-  if (babyMatch && babyMatch[1]) {
-    return `baby ${babyMatch[1]}`;
-  }
-
-  // Default fallback
-  return 'baby cat';
 }
 
-function buildDuckDuckGoImagesUrl(searchTerm: string): string {
-  const encodedTerm = encodeURIComponent(searchTerm).replace(/%20/g, '+');
-  return `https://duckduckgo.com/?q=${encodedTerm}&iax=images&ia=images`;
+/* ------------------------- Search Term Extraction ------------------------- */
+async function extractSearchTermFromTask(task: string, llm: ChatOpenAI): Promise<string> {
+  const extractionPrompt = `
+You are analyzing a user's task to extract the most relevant search term(s) for web search.
+
+**Task:** ${task}
+
+Extract the key search term or phrase that would be most effective for finding relevant content. Consider:
+- What is the main subject/topic the user wants to find?
+- What specific keywords would yield the best search results?
+- Remove unnecessary words like "find", "search for", "get", "show me"
+
+Examples:
+- "Find cute baby elephant pictures" → "cute baby elephant"
+- "Search for TypeScript tutorials" → "TypeScript tutorials"  
+- "Get news about climate change" → "climate change news"
+- "Show me reviews of iPhone 15" → "iPhone 15 reviews"
+
+Respond with ONLY the search term/phrase, no quotes or extra text.`;
+
+  try {
+    const response = await llm.invoke(extractionPrompt);
+    const searchTerm = (response.content as string).trim();
+    console.log(`[extractSearchTermFromTask] LLM extracted: "${searchTerm}" from: "${task}" #####`);
+    return searchTerm;
+  } catch (error) {
+    console.log(`[extractSearchTermFromTask] LLM error, using fallback: ${error} #####`);
+    // Simple fallback: remove common action words
+    const fallback =
+      task
+        .replace(/^(find|search for|get|show me|looking for)\s*/i, '')
+        .replace(/\s+(pictures|images|photos|videos|news|articles)$/i, '')
+        .trim() || 'search query';
+    console.log(`[extractSearchTermFromTask] Fallback result: "${fallback}" #####`);
+    return fallback;
+  }
+}
+
+/* ------------------------- LLM-Driven Search URL Generation ------------------------- */
+async function generateSearchUrl(
+  searchTerm: string,
+  task: string,
+  llm: ChatOpenAI,
+): Promise<string> {
+  const searchUrlPrompt = `
+You are determining the best search engine and URL format for a given task and search term.
+
+**Task:** ${task}
+**Search Term:** ${searchTerm}
+
+Based on the task type, choose the most appropriate search engine and generate the complete search URL. Consider:
+- For images: Google Images, DuckDuckGo Images, Bing Images
+- For news: Google News, DuckDuckGo News
+- For videos: YouTube, Google Videos
+- For shopping: Google Shopping, Amazon, eBay
+- For academic: Google Scholar, PubMed
+- For general web: Google, DuckDuckGo, Bing
+
+Respond with ONLY the complete URL, no quotes or extra text.
+
+Examples:
+- Images on DuckDuckGo: https://duckduckgo.com/?q=cute+baby+elephant&iax=images&ia=images
+- Images on Google: https://images.google.com/search?q=cute+baby+elephant&tbm=isch
+- News on Google: https://news.google.com/search?q=climate+change
+- Videos on YouTube: https://www.youtube.com/results?search_query=typescript+tutorial
+- Shopping on Google: https://www.google.com/search?q=iphone+15&tbm=shop`;
+
+  try {
+    const response = await llm.invoke(searchUrlPrompt);
+    const searchUrl = (response.content as string).trim();
+    console.log(`[generateSearchUrl] LLM generated URL: "${searchUrl}" for task: "${task}" #####`);
+    return searchUrl;
+  } catch (error) {
+    console.log(`[generateSearchUrl] LLM error, falling back to DuckDuckGo: ${error} #####`);
+    // Intelligent fallback based on task analysis
+    const taskLower = task.toLowerCase();
+    const encodedTerm = encodeURIComponent(searchTerm).replace(/%20/g, '+');
+
+    if (
+      taskLower.includes('image') ||
+      taskLower.includes('picture') ||
+      taskLower.includes('photo')
+    ) {
+      return `https://duckduckgo.com/?q=${encodedTerm}&iax=images&ia=images`;
+    } else if (taskLower.includes('news') || taskLower.includes('article')) {
+      return `https://duckduckgo.com/?q=${encodedTerm}&iar=news&ia=news`;
+    } else if (taskLower.includes('video') || taskLower.includes('watch')) {
+      return `https://www.youtube.com/results?search_query=${encodedTerm}`;
+    } else if (
+      taskLower.includes('shop') ||
+      taskLower.includes('buy') ||
+      taskLower.includes('price')
+    ) {
+      return `https://www.google.com/search?q=${encodedTerm}&tbm=shop`;
+    } else {
+      // General web search fallback
+      return `https://duckduckgo.com/?q=${encodedTerm}`;
+    }
+  }
 }
 
 /* ------------------------- System Prompts ------------------------- */
@@ -337,14 +418,12 @@ async function getNextAction(
     `[getNextAction] Called with searchPhase: ${state.searchPhase}, currentUrl: ${currentUrl} #####`,
   );
 
-  // ** Consolidated Heuristic Check **
-  // If we are on an image results page, the best action is always to extract.
-  console.log(`[getNextAction] Checking if URL is images page: ${currentUrl} #####`);
-  console.log(`[getNextAction] isDuckDuckGoImages: ${isDuckDuckGoImages(currentUrl)} #####`);
-  console.log(`[getNextAction] isGoogleImagesResults: ${isGoogleImagesResults(currentUrl)} #####`);
-  console.log(`[getNextAction] isBingImagesResults: ${isBingImagesResults(currentUrl)} #####`);
+  // ** LLM-Driven Results Page Detection **
+  console.log(`[getNextAction] Checking if URL is relevant results page: ${currentUrl} #####`);
+  const isResultsPage = await isRelevantResultsPage(currentUrl, state.task, llm);
+  console.log(`[getNextAction] LLM determined isRelevantResultsPage: ${isResultsPage} #####`);
 
-  if (isAnyImageResults(currentUrl)) {
+  if (isResultsPage) {
     // Check if we've already tried extracting multiple times with no results
     const recentExtractions = state.history
       .slice(-3)
@@ -359,7 +438,9 @@ async function getNextAction(
       return 'takeDomSnapshot()';
     }
 
-    console.log(`[getNextAction] Image results page detected, returning extractImageUrls() #####`);
+    console.log(
+      `[getNextAction] Relevant results page detected, returning extractImageUrls() #####`,
+    );
     return 'extractImageUrls()';
   }
 
@@ -387,29 +468,37 @@ async function getNextAction(
         console.log(
           `[getNextAction] Multiple failed Images tab clicks detected, trying direct navigation #####`,
         );
-        const searchTerm = extractSearchTermFromTask(state.task);
+        const searchTerm = await extractSearchTermFromTask(state.task, llm);
         console.log(
           `[getNextAction] Extracted search term: "${searchTerm}" from task: "${state.task}" #####`,
         );
-        return `navigateTo("${buildDuckDuckGoImagesUrl(searchTerm)}")`;
+        const searchUrl = await generateSearchUrl(searchTerm, state.task, llm);
+        return `navigateTo("${searchUrl}")`;
       }
 
       console.log(
         `[getNextAction] Found DOM snapshot (${lastDomSnapshot.length} chars), sending targeted prompt to LLM #####`,
       );
       const clickImagesPrompt = `
-You have just performed a search and taken a DOM snapshot. Your ONLY goal now is to find and click the "Images" tab or link to see the image results.
+You are a web automation agent. You just performed a search and took a DOM snapshot. 
 
-Analyze the following DOM snapshot and find the element that corresponds to the "Images" link or tab.
+**Current Task:** ${state.task}
+**Current State:** You completed a search but need to navigate to the appropriate results page to complete your task.
 
 **DOM Snapshot:**
 ${lastDomSnapshot}
 
-Based on the snapshot, what is the exact \`clickNodeById(id)\` command to click the "Images" tab?
-Your response must be ONLY the command, e.g., \`clickNodeById(123)\`. Do not add any other text.`;
+Analyze the DOM and determine the best next action to help complete the task. Look for relevant navigation elements, filters, or tabs that would help you reach the content you need.
+
+Your response must be ONLY a single command, such as:
+- \`clickNodeById(123)\` to click an element
+- \`takeDomSnapshot()\` to get more information
+- \`extractImageUrls()\` if you're already on the right page
+
+Do not add any other text.`;
       const response = await llm.invoke(clickImagesPrompt);
       const action = response.content as string;
-      console.log(`[getNextAction] LLM returned action for images tab: ${action} #####`);
+      console.log(`[getNextAction] LLM returned contextual action: ${action} #####`);
       return action;
     } else {
       console.log(
@@ -422,13 +511,14 @@ Your response must be ONLY the command, e.g., \`clickNodeById(123)\`. Do not add
   const recentActions = state.history.slice(-3).map(h => h.action);
   if (recentActions.every(a => a.includes('takeDomSnapshot'))) {
     console.log(
-      `[getNextAction] Snapshot loop detected, forcing navigation to DuckDuckGo Images #####`,
+      `[getNextAction] Snapshot loop detected, forcing navigation to search engine #####`,
     );
-    const searchTerm = extractSearchTermFromTask(state.task);
+    const searchTerm = await extractSearchTermFromTask(state.task, llm);
     console.log(
       `[getNextAction] Extracted search term: "${searchTerm}" from task: "${state.task}" #####`,
     );
-    return `navigateTo("${buildDuckDuckGoImagesUrl(searchTerm)}")`;
+    const searchUrl = await generateSearchUrl(searchTerm, state.task, llm);
+    return `navigateTo("${searchUrl}")`;
   }
 
   // Detect if we're repeating the same type->click->snapshot cycle
@@ -441,11 +531,12 @@ Your response must be ONLY the command, e.g., \`clickNodeById(123)\`. Do not add
     console.log(
       `[getNextAction] Detected repeated type-click cycles, forcing direct navigation #####`,
     );
-    const searchTerm = extractSearchTermFromTask(state.task);
+    const searchTerm = await extractSearchTermFromTask(state.task, llm);
     console.log(
       `[getNextAction] Extracted search term: "${searchTerm}" from task: "${state.task}" #####`,
     );
-    return `navigateTo("${buildDuckDuckGoImagesUrl(searchTerm)}")`;
+    const searchUrl = await generateSearchUrl(searchTerm, state.task, llm);
+    return `navigateTo("${searchUrl}")`;
   }
 
   // ** General LLM Planning (if no specific heuristic applies) **
