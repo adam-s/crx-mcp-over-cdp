@@ -21,6 +21,8 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     height: '100%',
     backgroundColor: tokens.colorNeutralBackground1,
+    borderRadius: tokens.borderRadiusMedium,
+    overflow: 'hidden',
   },
   header: {
     display: 'flex',
@@ -49,6 +51,7 @@ const useStyles = makeStyles({
     padding: '12px',
     overflow: 'auto',
     minHeight: 0,
+    borderRadius: tokens.borderRadiusSmall,
   },
   logEntry: {
     marginBottom: '2px',

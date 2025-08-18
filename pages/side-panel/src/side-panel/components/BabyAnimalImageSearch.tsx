@@ -221,29 +221,6 @@ export const BabyAnimalImageSearch: React.FC = () => {
               {result.success ? '✅ Success' : '❌ Failed'}
             </Text>
           </div>
-
-          {result.success && result.urls.length > 0 && (
-            <>
-              <div className={styles.resultInfo}>
-                <Text>Found URLs:</Text>
-                <Text style={{ fontWeight: tokens.fontWeightSemibold }}>{result.urls.length}</Text>
-              </div>
-
-              <ul className={styles.urlList}>
-                {result.urls.map((url, index) => (
-                  <li key={index} className={styles.urlItem}>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.urlLink}>
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
         </div>
       )}
     </div>

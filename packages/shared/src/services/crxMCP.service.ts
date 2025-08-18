@@ -10,6 +10,7 @@ import { BabyElephantAgentV2Service } from '../crx-mcp/babyElephantAgentV2Servic
 import { VisualSnapshotTaker } from '../crx-mcp/VisualSnapshotTaker';
 import { A11yTreeSnapshotTaker } from '../crx-mcp/A11yTreeSnapshotTaker';
 import { runBabyElephantAgent, runEnhancedBabyElephantAgent } from '../crx-mcp/babyElephantAgent';
+import { BabyAnimalPlanner } from '../crx-mcp/babyElephantAgenticRouting';
 import { DriverTestSuite } from '../crx-mcp/driverTest';
 import { StorageKeys, type SidePanelAppStorageSchema } from '../storage/types/storage.types';
 import { type AgentEvent } from '../crx-mcp/babyElephantAgent.v2';
@@ -223,7 +224,10 @@ export class CRXMCPService implements ICRXMCPService {
   ): Promise<{ success: boolean; urls: string[]; message: string }> {
     try {
       await this._ensureInitialized();
-      const result = await runBabyElephantAgent(query, this._driver!);
+
+      // Use the planner to convert user input to proper juvenile query
+      const planner = new BabyAnimalPlanner();
+      const result = await runBabyElephantAgent(query, this._driver!, planner);
       return result;
     } catch (error) {
       return {
