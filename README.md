@@ -2,7 +2,9 @@
 
 ## About
 
-**A Chrome extension that brings the Model Context Protocol (MCP) into the browser using Chrome DevTools Protocol (CDP) - no external server required.**
+**This is a proof of concept demonstrating how to run a Model Context Protocol (MCP) server inside a Chrome Extension using Chrome DevTools Protocol (CDP) - no external server required.**
+
+This repository showcases advanced browser automation and DOM interaction capabilities running entirely inside the browser, bringing MCP tools directly into the browser environment.
 
 This project is a browser-native port of [browser-mcp-over-cdp](https://github.com/dumitrubogdanmihai/browser-mcp-over-cdp) by [dumitrubogdanmihai](https://github.com/dumitrubogdanmihai), adapted to run entirely within a Chrome extension environment using Chrome.debugger api.
 
