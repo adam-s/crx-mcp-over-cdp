@@ -5,7 +5,7 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "types": ["node"]
   }
 }

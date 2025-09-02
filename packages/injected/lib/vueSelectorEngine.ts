@@ -208,7 +208,9 @@ function buildComponentsTreeVue2(instance: VueVNode): ComponentNode {
       return instance.$children;
     }
     if (Array.isArray(instance.subTree.children)) {
-      return instance.subTree.children.filter((vnode: any) => !!vnode.component).map((vnode: any) => vnode.component);
+      return instance.subTree.children
+        .filter((vnode: any) => !!vnode.component)
+        .map((vnode: any) => vnode.component);
     }
     return [];
   }
@@ -274,7 +276,9 @@ export const VueEngine: SelectorEngine = {
     const { name, attributes } = parseAttributeSelector(selector, false);
     const vueRoots = findVueRoots(document);
     const trees = vueRoots.map(vueRoot =>
-      vueRoot.version === 3 ? buildComponentsTreeVue3(vueRoot.root) : buildComponentsTreeVue2(vueRoot.root),
+      vueRoot.version === 3
+        ? buildComponentsTreeVue3(vueRoot.root)
+        : buildComponentsTreeVue2(vueRoot.root),
     );
     const treeNodes = trees
       .map(tree =>

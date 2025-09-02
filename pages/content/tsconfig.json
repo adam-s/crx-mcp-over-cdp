@@ -26,4 +26,8 @@
     "../../packages/shared/src",
     "../../packages/injected/global.d.ts"
   ],
+  "exclude": [
+    "../../packages/vs/vs/base/test/**",
+    "../../packages/vs/vs/base/common/marked/**"
+  ]
 }

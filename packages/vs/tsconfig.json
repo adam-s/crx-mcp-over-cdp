@@ -1,6 +1,7 @@
 {
   "extends": "@crx-mcp-over-cdp/tsconfig/esnext.json",
   "compilerOptions": {
+    "allowJs": false,
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
@@ -17,5 +18,11 @@
     "index.ts",
     "vs",
     "**.*.ts"
+  ],
+  "exclude": [
+    "vs/**/test/**",
+    "vs/**/tests/**",
+    "vs/base/test/**",
+    "vs/base/common/marked/**"
   ]
 }

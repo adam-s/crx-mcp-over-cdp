@@ -13,7 +13,6 @@
       "chrome",
       "vitest/globals"
     ],
-    "target": "ESNext"
   },
   "include": [
     "index.ts",

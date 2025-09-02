@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Chrome Extension App",
-  "extends": "./base.json"
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext"
+  }
 }
