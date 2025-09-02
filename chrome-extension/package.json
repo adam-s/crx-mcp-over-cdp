@@ -31,7 +31,7 @@
     "dexie": "^4.0.9",
     "jsdom": "^25.0.1",
     "webextension-polyfill": "^0.12.0",
-    "xstate": "^5.18.2",
+    "xstate": "^5.21.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {
