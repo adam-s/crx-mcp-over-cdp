@@ -21,7 +21,7 @@
     "@crx-mcp-over-cdp/shared": "workspace:*",
     "@fluentui-contrib/react-chat": "^0.1.11",
     "@fluentui/react-components": "^9.55.1",
-    "@fluentui/react-icons": "^2.0.262",
+    "@fluentui/react-icons": "^2.0.311",
     "@google/genai": "^1.3.0",
     "@huggingface/transformers": "3.5.0",
     "@modelcontextprotocol/sdk": "^1.17.3",
