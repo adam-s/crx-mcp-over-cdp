@@ -57,7 +57,7 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.2",
-    "xstate": "^5.18.2",
+    "xstate": "^5.23.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {
