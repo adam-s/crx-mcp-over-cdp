@@ -1,4 +1,4 @@
-import { ChromeExtensionDriver } from './chromeExtensionDriver';
+import { ChromeExtensionDriver } from '../chromeExtensionDriver';
 import { BabyAnimalPlanner } from './babyElephantAgenticRouting';
 
 /**

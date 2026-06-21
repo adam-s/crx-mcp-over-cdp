@@ -6,14 +6,17 @@ import { ChromeExtensionDriver } from '../crx-mcp/chromeExtensionDriver';
 import { CDP } from '../crx-mcp/CDP';
 import { DomInteractionsOperator } from '../crx-mcp/DomInteractionsOperator';
 import { DomSnapshotTaker } from '../crx-mcp/DomSnapshotTaker';
-import { BabyElephantAgentV2Service } from '../crx-mcp/babyElephantAgentV2Service';
+import { BabyElephantAgentV2Service } from '../crx-mcp/services/babyElephantAgentV2Service';
 import { VisualSnapshotTaker } from '../crx-mcp/VisualSnapshotTaker';
 import { A11yTreeSnapshotTaker } from '../crx-mcp/A11yTreeSnapshotTaker';
-import { runBabyElephantAgent, runEnhancedBabyElephantAgent } from '../crx-mcp/babyElephantAgent';
-import { BabyAnimalPlanner } from '../crx-mcp/babyElephantAgenticRouting';
+import {
+  runBabyElephantAgent,
+  runEnhancedBabyElephantAgent,
+} from '../crx-mcp/services/babyElephantAgent';
+import { BabyAnimalPlanner } from '../crx-mcp/services/babyElephantAgenticRouting';
 import { DriverTestSuite } from '../crx-mcp/driverTest';
 import { StorageKeys, type SidePanelAppStorageSchema } from '../storage/types/storage.types';
-import { type AgentEvent } from '../crx-mcp/babyElephantAgent.v2';
+import { type AgentEvent } from '../crx-mcp/services/babyElephantAgent.v2';
 
 export const ICRXMCPService = createDecorator<ICRXMCPService>('crxMCPService');
 

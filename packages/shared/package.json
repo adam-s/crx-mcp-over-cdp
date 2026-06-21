@@ -12,8 +12,8 @@
   "types": "index.ts",
   "scripts": {
     "clean": "rimraf ./dist",
-    "build:esm": "tsc --module esnext --target esnext --outDir dist/esm",
-    "build:cjs": "tsc --module commonjs --target esnext --outDir dist/cjs",
+    "build:esm": "tsc --project tsconfig.esm.json",
+    "build:cjs": "tsc --project tsconfig.cjs.json",
     "ready": "pnpm build:esm && pnpm build:cjs",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "pnpm lint --fix",

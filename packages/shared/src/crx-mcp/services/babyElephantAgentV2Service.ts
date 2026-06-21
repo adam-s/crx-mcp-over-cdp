@@ -3,11 +3,11 @@
 // This handles the bridge between the service and the agent implementation
 
 import { runAgentV2, type AgentTools, type AgentIO, type AgentEvent } from './babyElephantAgent.v2';
-import type { ChromeExtensionDriver } from './chromeExtensionDriver';
-import type { DomInteractionsOperator } from './DomInteractionsOperator';
-import type { A11yTreeSnapshotTaker } from './A11yTreeSnapshotTaker';
+import type { ChromeExtensionDriver } from '../chromeExtensionDriver';
+import type { DomInteractionsOperator } from '../DomInteractionsOperator';
+import type { A11yTreeSnapshotTaker } from '../A11yTreeSnapshotTaker';
 import { ChatOpenAI } from '@langchain/openai';
-import type { ServiceConsoleInterface } from '../types/serviceConsole.types';
+import type { ServiceConsoleInterface } from '../../types/serviceConsole.types';
 
 // Global window interface extension
 declare global {
